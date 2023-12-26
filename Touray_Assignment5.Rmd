@@ -1,0 +1,324 @@
+---
+title: "Touray_Assignment6"
+author: "Sheikh-Sedat Touray"
+date: "2023-10-07"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+This exercise involves the **Auto** dataset. 
+
+```{r}
+library(ISLR)
+?Auto
+Auto$origin = as.factor(Auto$origin)
+summary(Auto)
+```
+
+convert origin 1 = American, 2 = European, 3 = Japanese
+```{r}
+library(plyr)
+Auto$origin <- revalue(Auto$origin, c('1' = 'American', '2' = 'European', '3' = 'Japanese')) # renaming the values of the origin with their respective origins
+head(Auto)
+```
+
+(a) Create a new variable origin2 that takes value **1** if a car is American, and **0** otherwise.
+
+```{r}
+origin2 <- factor(ifelse (Auto$origin == "American", 1,0))#creating dummy variables for American and others 
+head(origin2)
+```
+
+```{r}
+# Now we add the new column (origin2) to the Auto dataset 
+Auto2 <- cbind(Auto,origin2)
+Auto2$origin <- NULL#removes the origin variable 
+head(Auto2,5)
+```
+
+
+
+(b) Split Auto data into a training set and a test set, placing approximately 80% and 20% of
+observations in each set.
+
+```{r}
+library(caTools)
+set.seed(11)
+total_rows <- nrow(Auto2)
+
+# Calculate the number of rows for the training and testing sets
+train_rows <- round(0.8 * total_rows)  # 80% for training
+test_rows <- total_rows - train_rows  # 20% for testing
+
+# Generate random indices for the training set
+train_indices <- sample(1:total_rows, train_rows)
+
+# Create the training and testing datasets
+train_data <- Auto2[train_indices, ]
+test_data <- Auto2[-train_indices, ]
+```
+
+Origin2 must be changed back into factor to avoid error *factor predictors must have at most 32 level*
+
+```{r}
+
+train_data$name <- NULL#removes the name variable
+```
+
+
+
+(c) Perform Classification Tree on the training data in order to predict origin2. Use cross-
+validation to prune the tree. Plot the resulting tree. Evaluate performance on the test data.
+What test error do you obtain?
+
+```{r}
+library(tree)
+#change this to factors so that it can make a classification tree without having level issues
+origin2= factor(train_data$origin2)
+tree_origin2 <- tree(origin2~.-origin2,train_data)
+
+```
+
+```{r}
+summary(tree_origin2)#gives summary statistics of tree 
+```
+
+```{r}
+#perform prediction on test data
+tree_pred = predict(tree_origin2, test_data, type = "class")
+
+table(prediction = tree_pred, truth = test_data$origin2) #confusion matrix
+```
+find below the test terror for my classification tree 
+
+```{r}
+mean(tree_pred != test_data$origin2) #test error
+```
+
+```{r}
+mean(tree_pred == test_data$origin2) #test accuracy
+```
+
+```{r}
+set.seed(1014)
+#perform cross validation
+cv_origin2 = cv.tree(tree_origin2, FUN = prune.misclass)
+
+cv_origin2
+```
+
+
+```{r}
+#plot the CV
+plot(cv_origin2$size, cv_origin2$dev, type = "b")
+text(tree_origin2, pretty=TRUE, cex=0.8)
+```
+
+```{r}
+#prune tree and plot resulting tree 
+prune.origin2 <- prune.tree(tree_origin2, best = 12)
+plot(prune.origin2)
+text(prune.origin2,pretty=TRUE)
+```
+
+find below the test terror for my pruned classification tree
+
+```{r}
+#predict test data on pruned tree
+prune.pred = predict(prune.origin2, test_data,type="class")
+table(prediction=prune.pred,truth=test_data$origin2)
+mean(prune.pred != test_data$origin2) #test error
+```
+
+
+(d) Perform Random Forest on the training data in order to predict origin2. Evaluate
+performance on the test data. What test error do you obtain?
+
+```{r}
+library(randomForest)
+set.seed(222)
+#random forest model 
+randori <- randomForest(origin2~., train_data, mtry =5, importance = TRUE)
+```
+
+```{r}
+#predicting new data on the random forest model
+pred.randori <- predict(randori,newdata = test_data)
+mean(pred.randori!=test_data$origin2)
+```
+```{r}
+#confusion matrix 
+table(prediction=pred.randori,truth=test_data$origin2)
+```
+
+```{r}
+#importance of variables 
+importance(randori)
+```
+```{r}
+#plot of variables based on importance 
+varImpPlot(randori)
+```
+
+These plots above show important variables and displacement variable shows up as the most important variable. 
+
+e) Fit a Support Vector Classifier to the data with various values of cost, in order to predict whether a car is American or not. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+
+```{r}
+library(e1071)
+set.seed(433)
+#cv on SV classifier 
+svmlinear =  tune(svm,origin2 ~ ., data = train_data, kernel = "linear", ranges = list(cost = c(0.001, 0.01, 1, 5, 10, 100)))
+summary(svmlinear)
+```
+
+
+The lowest error was achieved by using a cost of 1, which was 0.1147. The highest error was .3731 which was when cost was set to 0.001. 
+
+
+```{r}
+set.seed(821)
+# SV classifier model
+svmlinear =  svm(origin2 ~ ., data = train_data, kernel = "linear", ranges = list(cost = c(0.001, 0.01, 1, 5, 10, 100)))
+summary(svmlinear)
+```
+
+```{r}
+#prediction of SV classifier, table and error
+pred.svmlinear <- predict(svmlinear,newdata = test_data)
+table(test_data$origin2,pred.svmlinear)
+mean(pred.svmlinear!=test_data$origin2)
+```
+As can be seen above the cross-validation gives a better error than just the classifier model
+
+
+f) Now repeat (e), this time using Support Vector Machines (SVMs) with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+
+```{r}
+set.seed(439)
+#SVM polynomial model
+svmpol =  svm(origin2 ~ ., data = train_data, kernel = "polynomial", ranges = list(cost = c(0.1, 1, 5, 10), degree = c(2, 3, 4)))
+summary(svmpol)
+```
+```{r}
+#predicting new data on the SVM model polynonial model 
+pred.svmpol <- predict(svmpol,newdata = test_data)
+#confusion matrix 
+table(test_data$origin2,pred.svmpol)
+#computing test error obtained 
+mean(pred.svmpol!=test_data$origin2)
+```
+```{r}
+set.seed(833)
+svmpolt =  tune(svm,origin2 ~ ., data = train_data, kernel = "polynomial", ranges = list(cost = c(0.1, 1, 5, 10), degree = c(2, 3, 4)))
+summary(svmpolt)
+```
+
+The lowest error was achieved by using a cost of 10 and degree of 3, which was 0.1431. The highest error was .3563 which was when cost was set to 0.1 and a degree 2. And the lowest CV error is lower than that of the regular model which is expected. 
+
+
+```{r}
+set.seed(443)
+svmrad =  svm(origin2 ~ ., data = train_data, kernel = "radial", ranges = list(cost = c(0.1, 1, 5, 10), gamma = c(0.01, 0.1, 1, 5, 10, 100)))
+summary(svmrad)
+```
+
+```{r}
+#prediction of SVM radial classifier, table and error
+pred.svmrad <- predict(svmrad,newdata = test_data)
+table(test_data$origin2,pred.svmrad)
+mean(pred.svmrad!=test_data$origin2)
+```
+
+```{r}
+set.seed(838)
+svmradt =  tune(svm,origin2 ~ ., data = train_data, kernel = "radial", ranges = list(cost = c(0.1, 1, 5, 10), gamma = c(0.01, 0.1, 1, 5, 10, 100)))
+summary(svmradt)
+```
+
+The lowest error was achieved by using a cost of 10 and gamma of 1e-01, which was 0.1212. The highest error was 0.3727 which was when cost was set to 0.1 and a gamma of 1e+01. And the lowest CV error is lower than that of the regular model which is expected. 
+
+
+(g) Make some plots to back up your assertions in (e) and (f).
+
+```{r}
+library(kernlab)
+
+plot(svmlinear,train_data,weight~horsepower)
+plot(svmlinear,train_data,displacement~horsepower)
+plot(svmlinear,train_data,weight~displacement)
+plot(svmlinear,train_data,weight~acceleration)
+```
+```{r}
+plot(svmpol,train_data,weight~horsepower)
+plot(svmpol,train_data,displacement~horsepower)
+plot(svmpol,train_data,weight~displacement)
+plot(svmpol,train_data,weight~acceleration)
+```
+
+```{r}
+plot(svmrad,train_data,weight~horsepower)
+plot(svmrad,train_data,displacement~horsepower)
+plot(svmrad,train_data,weight~displacement)
+plot(svmrad,train_data,weight~acceleration)
+```
+
+
+(h) Using Auto data (without origin and origin2 variables) and hierarchical clustering with complete linkage and Euclidean distance, cluster cars. Visualize the dendrogram and cut at a height that results in three (3) distinct clusters. Create a confusion matrix to compare the resulting clustering solution to origin variable.
+
+```{r}
+Auto$origin <- NULL
+Auto$name <- NULL
+head(Auto)
+```
+
+```{r}
+hc.complete <- hclust(dist(Auto, method = "euclidean"), method = "complete")
+plot(hc.complete)
+```
+
+Now cut tree in three clusters 
+
+```{r}
+hc.cut <- cutree(hc.complete,3)
+table(hc.cut,Auto2$origin)
+
+```
+In this table the small number shows misclassification and in this case there is only one misclassification 
+
+```{r}
+
+hc.cut <- hclust(dist(hc.cut), method = "complete")
+plot(hc.cut)
+```
+
+(i) Repeat (h) for K-Means clustering with K=3.
+
+```{r}
+kcao <- kmeans(Auto, 3, nstart = 15)
+kcao
+plot(Auto, col = kcao$cluster, cex = 0.2, pch=0.1, lwd=2)
+
+```
+
+(j) Using Auto data (without origin, and origin2 variables) perform PCA. Print the summary and interpret the results. Specifically, comment on the possible number of components and factor loadings. How can you characterize the first 2 principal components?
+
+```{r}
+dimnames(Auto)
+apply(Auto, 2, mean)
+apply(Auto, 2, mean)
+```
+
+Standardize the the data
+
+```{r}
+pca.out <- prcomp(Auto, scale=TRUE)
+pca.out
+names(pca.out)
+?biplot
+biplot(pca.out, scale = 0, cex= 0.7)
+```
+
+The values of the variables are the components while the loadings are the names of the variables and the arrows show their direction. Displacement, year, and accelaration are negative while the rest of the variables are positive.
+
