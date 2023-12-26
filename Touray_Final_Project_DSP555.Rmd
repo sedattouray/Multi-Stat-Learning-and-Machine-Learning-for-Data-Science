@@ -1,0 +1,362 @@
+---
+title: "Final Project Paper"
+author: "Sheikh-Sedat Touray"
+date: "2023-10-20"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+heart <- read.csv('heart.csv')
+head(heart)
+
+```
+```{r}
+library(pastecs)
+stat.desc(heart, norm=TRUE)
+```
+
+
+
+
+
+
+
+
+```{r}
+library(plyr)
+heart$output <- as.factor(heart$output)
+heart$output <- revalue(heart$output, c('1' = 'Yes', '0' = 'No'))
+heart$sex <- as.factor(heart$sex)
+heart$sex <- revalue(heart$sex, c('1' = 'Male', '0' = 'Female'))
+heart$cp <- as.factor(heart$cp)
+heart$cp <- revalue(heart$cp, c('0' = 'typical', '1' = 'atypical', '2' = 'non-aginal', '3'='Asymptomatic'))
+heart$restecg <- as.factor(heart$restecg)
+heart$restecg <- revalue(heart$restecg, c('0' = 'Normal', '1' = 'Abnormal', '2' = 'LVH'))
+heart$exng <- as.factor(heart$exng)
+heart$exng <- revalue(heart$exng, c('1' = 'Yes', '0' = 'No'))
+heart$slp <- as.factor(heart$slp)
+heart$slp <- revalue(heart$slp, c('0' = 'Upsloping', '1' = 'Flat', '2' = 'Downsloping'))
+heart$fbs <- as.factor(heart$fbs)
+heart$fbs <- revalue(heart$fbs, c('1' = 'True', '0' = 'False'))
+
+```
+
+
+
+
+
+```{r}
+library(ggplot2)
+classofpar1 <- ggplot(heart, aes(x=sex, fill=output))+
+  geom_bar()+
+  xlab("Heart Attack")+
+  ylab("Number of Males & Females")+
+  ggtitle("More or Less chance of Heart  Attack")
+classofpar1
+```
+
+```{r}
+library(ggplot2)
+classofpar2 <- ggplot(heart, aes(x=cp, fill=output))+
+  geom_bar()+
+  xlab("Type of chest pain")+
+  ylab("Number of Patients")+
+  ggtitle("More or Less chance of Heart  Attack")
+classofpar2
+```
+
+```{r}
+
+classofpar3 <- ggplot(heart, aes(x=exng, fill=output))+
+  geom_bar()+
+  xlab("Exercise Induced Agina")+
+  ylab("Number of Patients")+
+  ggtitle("More or Less chance of Heart  Attack")
+classofpar3
+```
+
+```{r}
+
+classofpar4 <- ggplot(heart, aes(x=fbs, fill=output))+
+  geom_bar()+
+  xlab("Fasting Blood sugar > 120 mg/dl")+
+  ylab("Number of Patients")+
+  ggtitle("More or Less chance of Heart  Attack")
+classofpar4
+```
+```{r}
+summary(heart)
+```  
+```{r}
+str(heart)
+```
+
+**Assumptions**
+1. Normality 
+2. Positive Determinant for variance co-variance matrix
+3. Equal variance between two groups
+
+```d) Providing univariate means and variances 
+
+```{r}
+df <- data.frame(heart$age,heart$trtbps,heart$chol,heart$thalachh,heart$oldpeak)
+by(df, heart$output, colMeans)
+```
+
+
+
+```{r}
+by(df, heart$output, var)
+```
+
+```{r}
+by(df, heart$output, cor)
+```
+
+```{r}
+library(mvnormtest)
+multv <- t(df)
+
+mshapiro.test(multv)
+```
+Highly significant P value we might have to reject the null hypothesis, does not pass normality test. 
+
+
+```{r}
+covheart <- cov(df, method = 'spearman')
+det(covheart)
+```
+
+
+
+It passes the positive determinant test of variance-covariance matrix. 
+
+```{r}
+#Graph the means of the 5 variables for presence or absence of heart attack 
+library(gplots)
+
+plotmeans(heart$age~heart$output, data=heart,ylim=c(0,100),xlab="Heart Attack",legends = c("No","Yes"),main="likelihood of Heart Attack", connect = FALSE,mean.labels = TRUE,col = NULL,p=1.0)
+
+plotmeans(heart$trtbps~heart$output, data=heart,ylim=c(0,200),xlab="Heart Attack",legends = c("No","Yes"),main="likelihood of Heart Attack", connect = FALSE,mean.labels = TRUE,col = NULL,p=1.0)
+
+plotmeans(heart$chol~heart$output, data=heart,ylim=c(0,300),xlab="Heart Attack",legends = c("No","Yes"),main="likelihood of Heart Attack", connect = FALSE,mean.labels = TRUE,col = NULL,p=1.0)
+
+plotmeans(heart$thalachh~heart$output, data=heart,ylim=c(0,200),xlab="Heart Attack",legends = c("No","Yes"),main="likelihood of Heart Attack", connect = FALSE,mean.labels = TRUE,col = NULL,p=1.0)
+
+plotmeans(heart$oldpeak~heart$output, data=heart,ylim=c(0,2),xlab="Heart Attack",legends = c("No","Yes"),main="likelihood of Heart Attack", connect = FALSE,mean.labels = TRUE,col = NULL,p=1.0)
+
+```
+
+```{r}
+library(ICSNP)
+library(mvtnorm)
+```
+
+
+```{r}
+
+result <- HotellingsT2(df[1:165,], df[166:303,])
+
+# Print the test result
+print(result)
+```
+```{r}
+library(caTools)
+set.seed(1028)
+total_rows <- nrow(heart)
+
+# Calculate the number of rows for the training and testing sets
+train_rows <- round(0.8 * total_rows)  # 80% for training
+test_rows <- total_rows - train_rows  # 20% for testing
+
+# Generate random indices for the training set
+train_indices <- sample(1:total_rows, train_rows)
+
+# Create the training and testing datasets
+train_data <- heart[train_indices, ]
+test_data <- heart[-train_indices, ]
+```
+
+```{r}
+set.seed(1130)
+dim(train_data)
+
+dim(test_data)
+```
+
+
+(c) Perform Classification Tree on the training data in order to predict output of the likelihood of the patient suffering from a heart attack. Use cross-
+validation to prune the tree. Plot the resulting tree. Evaluate performance on the test data.
+What test error do you obtain?
+
+```{r}
+library(tree)
+attach(heart)
+#change this to factors so that it can make a classification tree without having level issues
+output= factor(output)
+tree_output <- tree(output~.-output,train_data)
+
+```
+
+```{r}
+summary(tree_output)#gives summary statistics of tree 
+```
+```{r}
+#perform prediction on test data
+tree_pred = predict(tree_output, test_data, type = "class")
+
+table(tree_pred,test_data$output) #confusion matrix
+```
+
+
+```{r}
+mean(tree_pred != test_data$output) #test error
+```
+
+```{r}
+mean(tree_pred == test_data$output) #test accuracy
+```
+
+
+```{r}
+set.seed(1111)
+#perform cross validation
+cv_output = cv.tree(tree_output, FUN = prune.misclass)
+
+cv_output
+```
+
+
+```{r}
+#plot the CV
+plot(cv_output$size, cv_output$dev, type = "b")
+text(tree_output, pretty=TRUE, cex=0.8)
+```
+
+```{r}
+#prune tree and plot resulting tree 
+prune.output <- prune.tree(tree_output, best = 8)
+plot(prune.output)
+text(prune.output,pretty=TRUE)
+```
+
+find below the test terror for my pruned classification tree
+
+```{r}
+#predict test data on pruned tree
+prune.pred = predict(prune.output, test_data,type="class")
+table(prune.pred,test_data$output)
+mean(prune.pred != test_data$output) #test error
+```
+```{r}
+mean(prune.pred == test_data$output) #test accuracy for pruned tree
+```
+```{r}
+
+#1. Accuracy — How often the model is correct overall
+Acc =(31+20)/61
+Acc
+#2. Recall — How often the model predicts “Yes”, when the actual value is “Yes”
+Recall=31/(31+8)
+Recall
+#3. Precision — How often is the model correct when the predicted value is “Yes”.
+prec=31/(31+2)
+prec
+#4. F1 Score — The weighted harmonic mean of recall and precision
+f1 =2*(0.7949*0.9394)/(0.7949+0.9394)
+f1
+```                          
+
+
+
+e) Fit a Support Vector Classifier to the data with various values of cost, in order to predict whether a patient is likely to suffer from a heart attack or not. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+
+```{r}
+library(e1071)
+
+set.seed(821)
+# SV classifier model
+svmlinear =  svm(output ~ .-output, data = train_data, kernel = "linear", ranges = list(cost = c(0.001, 0.01, 1, 5, 10, 100)))
+summary(svmlinear)
+```
+
+```{r}
+#prediction of SV classifier, table and error
+pred.svmlinear <- predict(svmlinear,newdata = test_data)
+table(test_data$output,pred.svmlinear)
+mean(pred.svmlinear!=test_data$output)#test error
+mean(pred.svmlinear==test_data$output)#test accuracy 
+```
+As can be seen above the cross-validation gives a better error than just the classifier model
+
+
+```{r}
+set.seed(433)
+#cv on SV classifier 
+svmlineart =  tune(svm,output ~ .-output, data = train_data, kernel = "linear", ranges = list(cost = c(0.001, 0.01, 1, 5, 10, 100)))
+summary(svmlineart)
+```
+
+
+The lowest error was achieved by using a cost of 100, which was 0.194. The highest error was 0.4545 which was when cost was set to 0.001. 
+
+
+
+
+f) Now repeat (e), this time using Support Vector Machines (SVMs) with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+
+```{r}
+set.seed(439)
+#SVM polynomial model
+svmpol =  svm(output ~ .-output, data = train_data, kernel = "polynomial", ranges = list(cost = c(0.1, 1, 5, 10), degree = c(2, 3, 4)))
+summary(svmpol)
+```
+```{r}
+#predicting new data on the SVM model polynonial model 
+pred.svmpol <- predict(svmpol,newdata = test_data)
+#confusion matrix 
+table(test_data$output,pred.svmpol)
+#computing test error obtained 
+mean(pred.svmpol!=test_data$output)
+#computing test Accuracy obtained 
+mean(pred.svmpol==test_data$output)
+```
+```{r}
+set.seed(1145)
+svmpolt =  tune(svm,output ~ .-output, data = train_data, kernel = "polynomial", ranges = list(cost = c(0.1, 1, 5, 10), degree = c(2, 3, 4)))
+summary(svmpolt)
+```
+
+The lowest error was achieved by using a cost of 1 and degree of 2, which was 0.2025. The highest error was 0.4548 which was when cost was set to 0.1 and a degree 4.  
+
+
+```{r}
+set.seed(1146)
+svmrad =  svm(output ~ .-output, data = train_data, kernel = "radial", ranges = list(cost = c(0.1, 1, 5, 10), gamma = c(0.01, 0.1, 1, 5, 10, 100)))
+summary(svmrad)
+```
+
+```{r}
+#prediction of SVM radial classifier, table and error
+pred.svmrad <- predict(svmrad,newdata = test_data)
+table(test_data$output,pred.svmrad)
+mean(pred.svmrad!=test_data$output)
+mean(pred.svmrad==test_data$output)
+```
+
+```{r}
+#1. Accuracy — How often the model is correct overall
+acc2 =(32+24)/61
+acc2  
+#2. Recall — How often the model predicts “Yes”, when the actual value is “Yes”.
+Recall2=32/(31+1)
+Recall2
+#3. Precision — How often is the model correct when the predicted value is “Yes”.
+prec2=32/(32+4)
+prec2
+#4. F1 Score — The weighted harmonic mean of recall and precision
+f12 =2*(1.0*0.8889)/(1.0+0.8889)
+f12
+```

@@ -1,0 +1,322 @@
+---
+title: "Touray_Assignment3Resub"
+author: "Sheikh-Sedat Touray"
+date: "2023-09-23"
+output:
+  pdf_document: default
+  html_document: default
+---
+We first call the the library function on **ISLR** to access the Auto dataset
+```{r}
+library(ISLR)
+Auto$origin = as.factor(Auto$origin)
+summary(Auto)
+```
+
+a) Creating a new Variable **Origin2**
+
+```{r}
+#create dummy variables for 1 if origin is American and 0 otherwise
+
+origin2 <- ifelse (Auto$origin == "1", 1,0)
+```
+
+```{r}
+#change the datatype to numeric
+origin2 <- as.numeric(origin2)
+```
+
+```{r}
+# Now we add the new column (origin2) to the Auto dataset 
+Auto2 <- cbind(Auto,origin2)
+head(Auto2,5)
+```
+```{r}
+# MASS library for the discriminant analysis models
+library(MASS)
+```
+
+```{r}
+library(caTools)
+
+total_rows <- nrow(Auto2)
+
+# Calculate the number of rows for the training and testing sets
+train_rows <- round(0.8 * total_rows)  # 80% for training
+test_rows <- total_rows - train_rows  # 20% for testing
+
+# Generate random indices for the training set
+train_indices <- sample(1:total_rows, train_rows)
+
+# Create the training and testing datasets
+train_data <- Auto2[train_indices, ]
+test_data <- Auto2[-train_indices, ]
+```
+
+
+checking the dimensions of the train and test data.
+
+```{r}
+#viewing train data 
+
+dim(train_data)
+
+#viewing test data
+
+dim(test_data)
+```
+
+c) Performing LDA on training data inorder to predict **origin2**
+
+
+
+```{r}
+# fitting the model on train data
+modla2 <- lda(origin2 ~ acceleration + cylinders + horsepower + displacement, train_data)
+modla2
+```
+```{r}
+# Predicting the lda model on the test data
+
+lda.pred <- predict(modla2, test_data)$class
+lda.pred
+```
+```{r}
+#Creating a confusion matrix 
+
+table(lda.pred,test_data$origin2)
+```
+```{r}
+# checking the accuracy of the qda model
+set.seed(19)
+error_lda <- mean(lda.pred != test_data$origin2)
+error_lda
+```
+
+```{r}
+# checking the accuracy of the lda model
+
+acc_lda <- mean(lda.pred == test_data$origin2)
+acc_lda
+```
+
+d) Perform QDA on training data to predict **origin2**
+
+```{r}
+# fitting train data on model 
+modqa2 <- qda(origin2 ~ acceleration + cylinders + horsepower + displacement, train_data)
+modqa2
+```
+
+```{r}
+# Predicting the qda model on unseen data
+qda.pred <- predict(modqa2, test_data)$class
+qda.pred
+```
+
+```{r}
+#creating a confusion matrix
+table(qda.pred,test_data$origin2)
+```
+```{r}
+# checking for the error of the qda model
+set.seed(17)
+error_qda <- mean(qda.pred != test_data$origin2)
+error_qda
+```
+
+```{r}
+# checking the accuracy of the qda model
+acc_qda <- mean(qda.pred == test_data$origin2)
+acc_qda
+```
+
+The test error obtained from the QDA is less than that of the LDA is the same, I had different values before I used the set seed function but because random samples are generated if setseed function is not used these numbers are bound to change. In the first try QDA had a lower error but not by much 
+---
+e) Perform KNN on the training data with several values of K to Predict **origin2**
+
+Firstly, we import the class library 
+
+```{r}
+library(class)
+```
+
+```{r}
+set.seed(246)
+#Prepare the data for training using the same variables in our previous models 
+train_knn <- cbind(train_data$cylinders, train_data$displacement, train_data$horsepower, train_data$acceleration)
+
+#Prepare the data for testing using the same variables in our previous models 
+test_knn<- cbind(test_data$cylinders, test_data$displacement, test_data$horsepower, test_data$acceleration)
+
+#use our test and train datasets to make a prediction for origin2 
+knn.pred <- knn(train_knn, test_knn, train_data$origin2, k = 1)
+
+#create a confusion matrix for our prediction to easily show TP,TN,FP and FN
+table(knn.pred, test_data$origin2)
+```
+
+
+#### Accuracy for K = 1 
+
+```{r}
+# checking the accuracy of the k=1 model
+set.seed(12)
+acc_knn <- mean(knn.pred == test_data$origin2)
+acc_knn
+```
+
+#### For K = 3, we have...
+
+```{r}
+#use our test and train datasets to make a prediction for origin2 
+knn.pred <- knn(train_knn, test_knn, train_data$origin2, k = 3)
+
+#create a confusion matrix for our prediction to easily show TP,TN,FP and FN
+table(knn.pred, test_data$origin2)
+```
+#### Accuracy for K = 3
+
+```{r}
+# checking the accuracy of the k=3 model
+set.seed(4)
+acc_knn <- mean(knn.pred == test_data$origin2)
+acc_knn
+```
+
+#### For K = 5, we have...
+
+```{r}
+#use our test and train datasets to make a prediction for origin2 
+knn.pred <- knn(train_knn, test_knn, train_data$origin2, k = 5)
+
+#create a confusion matrix for our prediction to easily show TP,TN,FP and FN
+table(knn.pred, test_data$origin2)
+```
+
+##### Accuracy for K = 5
+```{r}
+# checking the accuracy of the k=5 model
+set.seed(5)
+acc_knn <- mean(knn.pred == test_data$origin2)
+acc_knn
+```
+```{r}
+# checking the accuracy of the k=5 model
+set.seed(5)
+err_knn <- mean(knn.pred != test_data$origin2)
+err_knn
+```
+
+K=1 performs better than 3 and 5 with a higher accuracy before I used setseed function but after I used set seed function k=5 had the lowest error of about 0.038. 
+---
+f) Use **5-fold CV** to Evaluate my best
+classifier. 
+```{r}
+set.seed(1779)
+lda.cv.error.5 <- rep(0,10) # essential to define a vector containing misclassification LDA errors for all iterations 
+knn.cv.error.5 <- rep(0,10) # essential to define a vector containing misclassification QDA errors for all iterations
+n.test_data <- round(length(Auto$origin2)/10) # an approximate number of obrevations in each fold
+n <- length(Auto2$origin2)
+```
+
+```{r}
+for (i in 1:10){
+test_data1 <- seq((i-1)*n.test_data+1,min(i*n.test_data,n))  # ordered test sequence
+train_data1 <- setdiff(c(1:n),test_data) # ordered train sequence
+set.seed(246)
+#Prepare the data for training using the same variables in our previous models 
+train_knn <- cbind(Auto2$cylinders, Auto2$displacement, Auto2$horsepower, Auto2$acceleration)[train_data1,]
+
+#Prepare the data for testing using the same variables in our previous models 
+test_knn<- cbind(Auto2$cylinders, Auto2$displacement, Auto2$horsepower, Auto2$acceleration)[test_data1,]
+
+train.y <- origin2[train_data1]
+
+#use our test and train datasets to make a prediction for origin2 
+knn.pred1 <- knn(train_knn, test_knn, train.y, k = 5)
+
+knn.cv.error.5[i]<- mean(knn.pred!=Auto2$origin2[test_data1]) 
+
+#5 fold cv for lda 
+modla2 <- lda(origin2 ~ acceleration + cylinders + horsepower + displacement,train_data)
+lda.pred <- predict(modla2, test_data)$class
+lda.cv.error.5[i]<- mean(lda.pred != test_data$origin2) 
+}
+```
+
+The Knn errors after 10 tries and the average is. 
+```{r}
+knn.cv.error.5
+mean(knn.cv.error.5)
+```
+
+The LDA errors after 10 tries and the average is. 
+```{r}
+lda.cv.error.5 
+mean(lda.cv.error.5)
+```
+
+ 
+g) Fit logistic regression with **origin2**
+```{r}
+auto2.fit<-glm(origin2~mpg +displacement+horsepower+weight+year+cylinders, data=train_data,family=binomial)
+summary(auto2.fit)
+```
+All the predictors seem to be statistically significant. 
+
+mpg, weight and cylinders have a negative coefficient meaning if they go down then the origin of the car is not American and if they go up then the car is American. 
+
+While year and displacement have positive coefficients and the opposite of the statement above is the truth for them.
+
+---
+
+(h) Obtain a prediction of origin2 status for each car by computing the posterior probability of being manufactured in American. 
+```{r}
+auto2.probs = predict(auto2.fit, test_data, type = "response")
+auto2.pred = rep(0, length(auto2.probs))
+auto2.pred[auto2.probs > 0.5] = 1
+```
+
+(i) Compute the validation set error, which is the fraction of the observations in the 20% validation set that are misclassified.
+
+```{r}
+table(auto2.pred, test_data$origin2)
+```
+```{r}
+# checking the accuracy of the k=5 model
+err_aut2 <- mean(auto2.pred != test_data$origin2)
+err_aut2
+```
+
+The error in *glm* is much lower than all the other previous classifiers and it seems to be much better that all the other classifiers. 
+---
+J) Fit logistic regression with **origin2** as the response and mpg and horsepower as predictors on the full dataset.
+
+```{r}
+set.seed(3)
+auto21.fit<-glm(origin2 ~ mpg + horsepower, data=Auto2,family=binomial)
+summary(auto21.fit)
+```
+
+K) Write a function, **boot.fn()** that takes 
+
+```{r}
+library(boot)
+library(lattice)
+boot.fn <- function(data, index) 
+  return(coef(lm(origin2 ~ mpg + horsepower, data = data, subset = index)))
+boot.fn(Auto2, 1:392)
+```
+
+l) use the **boot()** function with the **boot.fn()** function to estimate
+
+```{r}
+boot.fn <- function(data, index) 
+  coefficients(lm(origin2 ~ mpg + horsepower, data = data, subset = index))
+
+set.seed(1)
+boot(Auto2, boot.fn, 1000)
+```
+
+The standard errors obtained from the bootstrap function are much lower than those obtained from the **glm()** function. 

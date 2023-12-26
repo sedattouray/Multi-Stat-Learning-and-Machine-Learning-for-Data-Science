@@ -1,0 +1,235 @@
+---
+title: "Touray_Assignment2"
+author: "Sheikh-Sedat Touray"
+date: "2023-09-16"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+ **Auto Dataset**
+
+
+In this problem before we begin we must convert origin(1 = American, 2 = European, 3 = Japanese) to the factor (categorical) Variable. 
+
+So for now we install the **ISLR** package
+
+```{r}
+library(ISLR)
+?Auto
+library(plyr)
+Auto$origin <- as.factor(Auto$origin)
+Auto$origin <- revalue(Auto$origin, c('1' = 'American', '2' = 'European', '3' = 'Japanese'))
+head(Auto)
+```
+
+ a) Now we can get the summary statitics of each variable by using the *summary* function. 
+
+```{r}
+summary(Auto)
+```
+
+ b) Describing the data in terms of number of row, columns and data types 
+ 
+```{r}
+str(Auto)
+```
+
+
+From the **str()** function we can observe that there are 392 rows(observations) and 9 variables(columns)
+
+All the the variables are numerical except the *origin* which we change to a categorical data and the *name* variable is categorical type also. And the ranges of the data can be seen in the summary funtion and it is the difference between the max. and mins.
+
+
+c) i) Supervised learning question I am interested in is what *Origin* car has the highest *Mpg*. 
+
+ii) Unsupervised learning question I am interested in is if we pass the unlabelled auto data in a model are we going to be accurately observe the three clusters based on the feature learning technique of the model due to it's ability to follow patterns and group objects based on their similarities and separate them based on their differences. 
+
+
+---
+
+d) Providing univariate means and variances 
+
+```{r}
+by(Auto[,1:7], Auto$origin, colMeans)
+```
+```{r}
+by(Auto[,1:4], Auto$origin, var)
+```
+
+Providing Multivariate Covariance and Correlation 
+
+```{r}
+by(Auto[,1:4], Auto$origin, cor)
+```
+
+```{r}
+cov(Auto$mpg,Auto$cylinders, method = 'spearman')
+```
+
+Before we plot the graphs i want to attach the Auto dataset. 
+
+```{r}
+attach(Auto)
+cylinders <- as.factor(cylinders)
+search()
+```
+
+e) **Produce 3 graphical plots**
+
+*Box plot of mpg against weight*
+
+```{r}
+#library(tidyverse)
+library(ggplot2)
+bpwm <- ggplot(Auto, aes(x=cylinders, y = mpg, color=origin)) +
+       geom_boxplot()
+
+bpwm + ggtitle("Box plot of mpg vs weight") +
+  xlab("weight (lbs)") + ylab("mpg")
+```
+
+*Scatter plot of mpg against weight*
+
+```{r}
+scwm <- ggplot(Auto, aes(x=weight, y = mpg, color=origin)) +
+geom_point()
+
+scwm + ggtitle("Box plot of mpg vs weight") +
+  xlab("weight (lbs)") + ylab("mpg")
+```
+
+*Histogram of horsepower*
+
+```{r}
+#library(tidyverse)
+library(ggplot2)
+hpwr <- ggplot(Auto, aes(x=horsepower, color=origin)) +
+       geom_histogram(bins=30)
+
+hpwr + ggtitle("Histogram of Horsepower") +
+  xlab("Horsepower") + ylab("Frequency")
+```
+
+f) Check univariate and multivariate normality of **horsepower**, **weight**, and **acceleration** variables. 
+
+```{r}
+shapiro.test(horsepower)
+shapiro.test(weight)
+shapiro.test(acceleration)
+shapiro.test(c(horsepower,weight,acceleration))
+```
+
+
+*For Multivariate Normaility*
+
+```{r}
+library(mvnormtest)
+multv <- t(Auto[,4:6])
+
+mshapiro.test(multv)
+
+```
+
+g) Fitting a simple linear regression model with **weight** as predictor and **mpg** as response
+
+
+```{r}
+model <- lm(mpg ~ weight, data = Auto)
+model
+```
+
+
+
+
+The negative Coefficient shows that as **weight** increases the **mpg** decreases.
+
+
+
+h) Plot **mpg** and **weight** along the regression line (on one plot)
+
+```{r}
+plot(mpg ~ weight, data = Auto, cex=0.3, col = "blue", main='mpg and weight',
+     xlab='weight (lbs)',ylab='mpg')
+
+abline(lm(mpg ~ weight, data = Auto), col = 'red')
+```
+
+
+
+It is clear that mpg and weight do have a negative linear relationship because as weight increases the mpg decreases and when the model was fit with a regression line this proven again as seen in the plot above. 
+
+---
+
+i) Fitting multiple variables against **mpg** as response. without interaction. 
+
+```{r}
+model2 <- lm(mpg ~ weight + origin, data = Auto)
+summary(model2)
+```
+
+Fitting multiple variables against **mpg** as response. with interactions.
+
+```{r}
+model2.1 <- lm(mpg ~ weight*displacement + origin*displacement, data = Auto)
+summary(model2.1)
+```
+
+*Comparing these two models with and without interactions shows that the model with interactions performed better that the the one without and the interaction between weight and displacement is statistically significant while the interaction between origin and displacement is not.*
+
+
+h) Fitting more variables against **mpg** as response.
+
+```{r}
+model3 <- lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + year + origin, data = Auto)
+summary(model3)
+```
+
+k) Run a full diagnostic on model fit in (j) and report any issues related to model. 
+
+
+
+```{r}
+par(mfrow=c(2,3))
+
+Diag1 <- plot(model3, which=1:4)
+```
+
+**Issues Related to Model 3**
+
+
+The **Residuals vs Fitted plot** is useful for checking of linearity and homoscedasticity and values not too far from 0 are the best for this purposes anything below -2 or greater that 2 could be considered problematic. So the issue with this model as we can see from this plot is that it has a high value of about 5.  
+
+
+By looking at the **QQ-plot** and how all the observations lie along the 45-degree line then we may assume linearity. 
+
+The **Scale - Loacation plot** is used to check for homoscedascity and we are checking checking to see if there is a pattern in the residuals and in our case, there is somewhat of a pattern which is also an issue with our model. 
+
+My cook's **distance** shows that observation 14 has a larger cook's distance than the other data points but it does not mean that this is an issue because outliers maybe or may not be influential and in this plot are not able to tell that. 
+
+So therefore **Residuals vs Fitted plot** and **Scale - Loacation plot** clearly show that model3 has an issue.
+
+---
+
+l) Propose a less problematic response than model in j
+
+```{r}
+model3.1 <- lm(mpg ~ cylinders + horsepower*displacement + weight*displacement + acceleration*displacement + year*displacement + origin, data = Auto)
+summary(model3.1)
+```
+
+*In my proposed model it shows that all the variables that had an interaction with displacement are statistically significant and the new model seemed to be performing way better based on the R-sqquared values. However we shall explore this further when we run a diagnostic of the model*
+
+
+**My proposed Model Diagnostic**
+```{r}
+par(mfrow=c(2,3))
+
+Diag2 <- plot(model3.1, which=1:4)
+```
+
+
+*As anticipated my proposed model has solved the issues that were present in the previous diagnostic in the  **Residuals vs Fitted plot** (now at values almost 0 which we were looking for) and the **Scale - Loacation plot** (no patterns there).*
+----
+
